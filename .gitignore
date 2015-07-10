@@ -1,0 +1,7 @@
+aiogrouper.egg-info
+dist
+build
+*.swp
+.pydevproject
+.project
+__pycache__
