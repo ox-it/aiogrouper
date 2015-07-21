@@ -7,9 +7,9 @@ from .query import Query
 from .subject import SubjectLookup
 
 class Grouper(object):
-    def __init__(self, base_url, auth):
+    def __init__(self, base_url, session=None):
         self._base_url = base_url
-        self._session = aiohttp.ClientSession()
+        self._session = session or aiohttp.ClientSession()
 
     @property
     def api_url(self):
