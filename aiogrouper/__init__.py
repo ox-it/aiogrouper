@@ -1,7 +1,7 @@
 from pkg_resources import get_distribution, DistributionNotFound
 import os.path
 
-__distribution__ = 'halld'
+__distribution__ = 'aiogrouper'
 
 # Kudos to http://stackoverflow.com/a/17638236
 
@@ -18,3 +18,4 @@ except DistributionNotFound:
 else:
     __version__ = _dist.version
 
+from .grouper import Grouper
