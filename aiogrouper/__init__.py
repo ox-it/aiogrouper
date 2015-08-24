@@ -18,4 +18,6 @@ except DistributionNotFound:
 else:
     __version__ = _dist.version
 
+from .group import Group
 from .grouper import Grouper
+from .subject import Subject, SubjectLookup
