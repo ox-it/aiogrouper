@@ -7,7 +7,8 @@ from urllib.parse import urljoin
 import aiohttp
 
 from .group import Group, Grouplike
-from .query import Query, StemLookup
+from .query import Query
+from .stem import StemLookup
 from .subject import Subject, Subjectlike
 from .util import tf_to_bool, bool_to_tf
 
@@ -154,12 +155,12 @@ class Grouper(object):
                 'memberFilter': 'All',
                 'includeGroupDetail': 'F',
                 'includeSubjectDetail': 'F',
-                'wsSubjectLookups': [m.as_json() for m in members],
+                'wsSubjectLookups': [m.to_json() for m in members],
             }
         }
         if groups is not None:
             assert all(isinstance(group, Grouplike) for group in groups)
-            data['WsRestGetMembershipsRequest']['wsGroupLookups'] = [g.as_json() for g in groups]
+            data['WsRestGetMembershipsRequest']['wsGroupLookups'] = [g.to_json() for g in groups]
         return (yield from self.post(self.memberships_url, data))
 
     @asyncio.coroutine
@@ -173,7 +174,7 @@ class Grouper(object):
         assert all(isinstance(member, Subjectlike) for member in members)
         data = {
             'WsRestHasMemberRequest': {
-                'subjectLookups': [m.as_json() for m in members],
+                'subjectLookups': [m.to_json() for m in members],
             }
         }
         return (yield from self.post(self.group_members_url.format(group.name), data))

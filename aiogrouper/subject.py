@@ -20,7 +20,7 @@ class Subject(Subjectlike):
             return value
         raise ValueError
 
-    def as_json(self):
+    def to_json(self):
         data = {'subjectId': self.id}
         return data
 
@@ -32,7 +32,7 @@ class SubjectLookup(Subjectlike):
     def __init__(self, identifier, source=None):
         self.identifier, self.source = identifier, source
 
-    def as_json(self):
+    def to_json(self):
         data = {'subjectIdentifier': self.identifier}
         if self.source:
             data['subjectSource'] = self.source

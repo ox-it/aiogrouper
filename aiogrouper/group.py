@@ -18,7 +18,7 @@ class Group(Grouplike):
                        uuid=value.get('uuid'))
         return cls(name=value)
 
-    def as_json(self):
+    def to_json(self):
         data = {}
         if self.name:
             data['groupName'] = self.name
