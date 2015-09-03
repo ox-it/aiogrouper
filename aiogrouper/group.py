@@ -1,3 +1,5 @@
+__all__ = ['Group', 'Grouplike']
+
 class Grouplike(object):
     pass
 

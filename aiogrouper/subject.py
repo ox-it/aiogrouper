@@ -1,3 +1,5 @@
+__all__ = ['Subject', 'Subjectlike', 'SubjectLookup']
+
 class Subjectlike(object):
     pass
 

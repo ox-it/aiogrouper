@@ -1,5 +1,7 @@
 import abc
 
+__all__ = ['Query', 'BinaryOperator', 'And', 'Or', 'Minus', 'FindByStemName']
+
 class Query(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod

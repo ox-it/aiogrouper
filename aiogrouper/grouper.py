@@ -1,14 +1,17 @@
 import asyncio
 import collections
+import collections.abc
 import json
 from urllib.parse import urljoin
 
 import aiohttp
 
 from .group import Group, Grouplike
-from .query import Query
+from .query import Query, StemLookup
 from .subject import Subject, Subjectlike
 from .util import tf_to_bool, bool_to_tf
+
+__all__ = ['Grouper']
 
 class Grouper(object):
     def __init__(self, base_url, session=None):
@@ -23,7 +26,7 @@ class Grouper(object):
         return urljoin(self._base_url, 'servicesRest/v2_1_005/')
 
     @property
-    def groups_url(self):
+    def stems_url(self):
         return urljoin(self.api_url, 'stems/')
 
     @property
@@ -77,7 +80,7 @@ class Grouper(object):
             subjects = {g['id']: Subject.coerce(g) for g in data['WsGetMembershipsResults']['wsSubjects']}
             results = collections.defaultdict(set)
             for membership in data['WsGetMembershipsResults']['wsMemberships']:
-                 results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
+                results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
             return dict(results)
         else:
             return data
@@ -113,13 +116,22 @@ class Grouper(object):
         return (yield from self.post(self.groups_url, data))
 
     @asyncio.coroutine
-    def find_stems(self, query):
-        assert isinstance(query, Query)
+    def find_stems(self, *, lookups=None, query=None):
         data = {
-            'WsRestFindStemsRequest': {
-                'wsStemQueryFilter': query.to_json(),
-            },
+            'WsRestFindStemsRequest': {}
         }
+        if lookups is not None:
+            assert isinstance(lookups, collections.abc.Iterable)
+            assert all(isinstance(l, StemLookup) for l in lookups)
+            assert query is None
+            data['WsRestFindStemsRequest']['wsStemLookups'] = [l.to_json() for l in lookups]
+            if not data['WsRestFindStemsRequest']['wsStemLookups']:
+                return None
+        elif query is not None:
+            assert isinstance(query, Query)
+            data['WsRestFindStemsRequest']['wsStemQueryFilter'] = query.to_json()
+        else:
+            raise AssertionError("Must provide either lookups or query")
         return (yield from self.post(self.stems_url, data))
 
     @asyncio.coroutine
@@ -133,6 +145,8 @@ class Grouper(object):
 
     @asyncio.coroutine
     def get_memberships(self, members, groups=None, subject_attribute_names=()):
+        if groups is not None and len(groups) == 0:
+            return {member: set() for member in members}
         assert all(isinstance(member, Subjectlike) for member in members)
         data = {
             'WsRestGetMembershipsRequest': {
@@ -147,6 +161,11 @@ class Grouper(object):
             assert all(isinstance(group, Grouplike) for group in groups)
             data['WsRestGetMembershipsRequest']['wsGroupLookups'] = [g.as_json() for g in groups]
         return (yield from self.post(self.memberships_url, data))
+
+    @asyncio.coroutine
+    def get_subject_memberships(self, member, groups=None, subject_attribute_names=()):
+        results = yield from self.get_memberships([member], groups, subject_attribute_names)
+        return results.popitem()[1]
 
     @asyncio.coroutine
     def has_members(self, group, members):
