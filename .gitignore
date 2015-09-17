@@ -1,7 +1,8 @@
-aiogrouper.egg-info
-dist
-build
-*.swp
-.pydevproject
+*.pyc
 .project
+.pydevproject
+/dist
+/build
+/*.egg-info/
+/.idea
 __pycache__
