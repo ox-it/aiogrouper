@@ -20,6 +20,7 @@ else:
 
 from .grouper import *
 from .group import *
-from .subject import *
 from .query import *
+from .stem import *
+from .subject import *
 

@@ -1,17 +1,20 @@
 import asyncio
 
-from .enum import CompositeType
+from .subject import Subject
 
-__all__ = ['Group', 'CompositeGroup']
+from .util import bool_to_tf
+from .enum import CompositeType, SaveMode
+
+__all__ = ['Group', 'CompositeGroup', 'GroupToSave']
 
 
 class Group:
-    def __init__(self, name=None, uuid=None, display_extension=None, grouper=None, **kwargs):
+    def __init__(self, grouper, name=None, uuid=None, display_extension=None, **kwargs):
         assert name or uuid
+        self.grouper = grouper
         self.name = name
         self.uuid = uuid
         self.display_extension = display_extension
-        self.grouper = grouper
 
     @classmethod
     def from_json(cls, data, grouper):
@@ -37,10 +40,12 @@ class Group:
             data['displayExtension'] = self.display_extension
         return data
 
+    def as_subject(self):
+        return Subject(identifier=self.name, source='g:gsa')
+
     @asyncio.coroutine
     def save(self):
-        group = (yield from (self.grouper.save_group(self)))
-        self.uuid = group.uuid
+        return (yield from (self.grouper.save_group(self)))
 
     def __eq__(self, other):
         return (self.name == other.name) if self.name else \
@@ -52,6 +57,7 @@ class Group:
     def __str__(self):
         return '<Group {}: {!r}>'.format(self.name or self.uuid, self.display_extension)
     __repr__ = __str__
+
 
 class CompositeGroup(Group):
     def __init__(self, *, composite_type, left, right, **kwargs):
@@ -78,3 +84,22 @@ class CompositeGroup(Group):
                    left=data['leftGroup'],
                    right=data['rightGroup'],
                    grouper=grouper)
+
+
+class GroupToSave(object):
+    def __init__(self, group, *,
+                 group_lookup=None,
+                 save_mode=SaveMode.insert_or_update,
+                 create_parent_stems_if_not_exist=False):
+        self.group = group
+        self.group_lookup = group_lookup or group
+        self.save_mode = save_mode
+        self.create_parent_stems_if_not_exist = create_parent_stems_if_not_exist
+
+    def to_json(self):
+        return {
+            'wsGroup': self.group.to_json(),
+            'wsGroupLookup': self.group_lookup.to_json(lookup=True),
+            'saveMode': self.save_mode.value,
+            'createParentStemsIfNotExist': bool_to_tf(self.create_parent_stems_if_not_exist),
+        }
