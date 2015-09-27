@@ -2,6 +2,7 @@ import asyncio
 from aiogrouper.util import bool_to_tf
 from aiogrouper.enum import SaveMode
 
+__all__ = ['Stem', 'StemToSave']
 
 class Stem:
     def __init__(self, *, name=None, uuid=None,

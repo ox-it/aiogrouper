@@ -1,5 +1,6 @@
 import enum
 
+__all__ = ['FieldType', 'StemScope', 'CompositeType', 'PermissionAssignment', 'SaveMode', 'PrivilegeName']
 
 class FieldType(enum.Enum):
     list = 'list'
