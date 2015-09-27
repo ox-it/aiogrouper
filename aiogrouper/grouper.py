@@ -136,11 +136,6 @@ class Grouper(object):
                                             replace_existing=True))
 
     @asyncio.coroutine
-    def get_members(self, group, members):
-        return (yield from self.add_members(group, members,
-                                            replace_existing=True))
-
-    @asyncio.coroutine
     def get_members(self, group):
         assert isinstance(group, Group)
         return (yield from self.get(self.group_members_url.format(group.name)))
