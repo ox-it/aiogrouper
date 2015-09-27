@@ -2,6 +2,7 @@ __all__ = ['Subject']
 
 class Subject:
     def __init__(self, *, id=None, identifier=None, source=None, name=None, grouper=None):
+        assert id or identifier
         self.id = id
         self.identifier, self.source = identifier, source
         self.name = name
@@ -21,9 +22,13 @@ class Subject:
 
     def to_json(self, lookup=False):
         if lookup:
-            data = {'subjectIdentifier': self.identifier}
+            data = {}
+            if self.id:
+                data['subjectId'] = self.id
+            if self.identifier:
+                data['subjectIdentifier'] = self.identifier
             if self.source:
-                data['subjectSource'] = self.source
+                data['subjectSourceId'] = self.source
             return data
         data = {'subjectId': self.id}
         return data
