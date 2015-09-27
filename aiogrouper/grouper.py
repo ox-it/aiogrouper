@@ -100,6 +100,15 @@ class Grouper(object):
             return [Stem.from_json(r['wsStem'], grouper=self) for r in data['results']]
         elif results_name == 'WsGetMembersLiteResult':
             return [Subject.from_json(g, grouper=self) for g in data.get('wsSubjects', ())]
+        elif results_name == 'WsGetGrouperPrivilegesLiteResult':
+            results = collections.defaultdict(set)
+            subjects = {}
+            for privilege in data['privilegeResults']:
+                subject_key = (privilege['wsSubject']['sourceId'], privilege['wsSubject']['id'])
+                if subject_key not in subjects:
+                    subjects[subject_key] = Subject.from_json(privilege['wsSubject'], self)
+                results[subjects[subject_key]].add(PrivilegeName[privilege['privilegeName']])
+            return dict(results)
         else:
             return data
 
@@ -287,3 +296,24 @@ class Grouper(object):
 
         data = {'WsRestAssignGrouperPrivilegesRequest': data}
         return (yield from self.post(self.privileges_url, data))
+
+    def get_privileges(self, *,
+                       stem=None, group=None, subject=None,
+                       privilege_name=None):
+        assert isinstance(stem, Stem) or isinstance(group, Group)
+        assert subject is None or isinstance(subject, Subject)
+        assert privilege_name is None or isinstance(privilege_name, PrivilegeName)
+        data = {
+            'privilegeType': 'access' if group else 'naming',
+        }
+        if stem: data['stemName'] = stem.name
+        elif group: data['groupName'] = group.name
+        if subject and subject.id: data['subjectId'] = subject.id
+        if subject and subject.identifier: data['subjectIdentifier'] = subject.identifier
+        if subject and subject.source: data['subjectSourceId'] = subject.source
+        data = {'WsRestGetGrouperPrivilegesLiteRequest': data}
+        result = (yield from self.post(self.privileges_url, data))
+        if subject:
+            return result.popitem()[1] if result else set()
+        else:
+            return result
