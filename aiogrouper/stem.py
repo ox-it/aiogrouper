@@ -4,14 +4,15 @@ from aiogrouper.enum import SaveMode
 
 __all__ = ['Stem', 'StemToSave']
 
+
 class Stem:
-    def __init__(self, *, name=None, uuid=None,
-                 description=None, display_extension=None,
-                 grouper=None):
+    def __init__(self, grouper, *, name=None, uuid=None,
+                 description=None, extension=None, display_extension=None):
         assert name or uuid, "One of name and uuid must be provided"
         self.name = name
         self.uuid = uuid
         self.description = description
+        self.extension = extension
         self.display_extension = display_extension
         self.grouper = grouper
     
@@ -37,15 +38,14 @@ class Stem:
     def from_json(cls, data, grouper=None):
         return cls(name=data.get('name'),
                    uuid=data.get('uuid'),
+                   extension=data.get('extension'),
                    display_extension=data.get('displayExtension'),
                    description=data.get('description'),
                    grouper=grouper)
 
     @asyncio.coroutine
     def save(self, **kwargs):
-        stem = yield from self.grouper.save_stem(StemToSave(self, **kwargs))
-        self.uuid = stem.uuid
-        return self
+        return (yield from self.grouper.save_stem(StemToSave(self, **kwargs)))
 
 
 class StemToSave(object):

@@ -1,4 +1,4 @@
-__all__ = ['Subject']
+__all__ = ['Subject', 'everyone']
 
 class Subject:
     def __init__(self, *, id=None, identifier=None, source=None, name=None, grouper=None):
@@ -30,9 +30,14 @@ class Subject:
             if self.source:
                 data['subjectSourceId'] = self.source
             return data
-        data = {'subjectId': self.id}
+        data = {}
+        if self.id: data['id'] = self.id
+        if self.source: data['sourceId'] = self.source
+        if self.name: data['name'] = self.name
         return data
 
     def __str__(self):
         return '<Subject {}: {!r}>'.format(self.id, self.name)
     __repr__ = __str__
+
+everyone = Subject(id='GrouperAll', source='g:isa')

@@ -2,12 +2,13 @@ import asyncio
 import collections
 import collections.abc
 import json
+import logging
 from urllib.parse import urljoin
 
 import aiohttp
 
-from .enum import FieldType, StemScope, SaveMode, PrivilegeName
-from .exceptions import api_exceptions, GrouperAPIException
+from .enum import FieldType, StemScope, SaveMode, PrivilegeName, ResultCode
+from .exceptions import api_exceptions, GrouperAPIException, GrouperDeserializeException
 from .group import Group, GroupToSave
 from .query import Query
 from .stem import Stem, StemToSave
@@ -15,6 +16,8 @@ from .subject import Subject
 from .util import tf_to_bool, bool_to_tf
 
 __all__ = ['Grouper']
+
+logger = logging.getLogger('aiogrouper')
 
 class Grouper(object):
     def __init__(self, base_url, session=None):
@@ -50,6 +53,7 @@ class Grouper(object):
 
     @asyncio.coroutine
     def request(self, method, path, data):
+        logger.info("%s %s", method.upper(), path)
         headers = {'Content-Type': 'text/x-json'}
         url = urljoin(self._base_url, path)
         if hasattr(data, 'to_json'):
@@ -61,7 +65,7 @@ class Grouper(object):
                                                     headers=headers)
         response_data = yield from response.json()
         response.close()
-        return self.parse_response(data, response_data)
+        return self.parse_response(method, path, data, response_data)
 
     @asyncio.coroutine
     def get(self, path):
@@ -75,12 +79,12 @@ class Grouper(object):
     def put(self, path, data):
         return (yield from self.request('put', path, data))
 
-    def parse_response(self, input, data):
+    def parse_response(self, method, path, input, data):
         results_name, data = data.popitem()
 
         if data['resultMetadata']['success'] == 'F':
             exc = api_exceptions.get(data['resultMetadata']['resultCode'], GrouperAPIException)
-            raise exc(data['resultMetadata']['resultMessage'], input, data)
+            raise exc(data['resultMetadata']['resultMessage'], method, path, input, data)
 
         if results_name == 'WsHasMemberResults':
             results = {}
@@ -94,6 +98,10 @@ class Grouper(object):
             for membership in data.get('wsMemberships', ()):
                 results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
             return dict(results)
+        elif results_name == 'WsFindStemsResults':
+            return [Stem.from_json(r, grouper=self) for r in data['stemResults']]
+        elif results_name == 'WsFindGroupsResults':
+            return [Group.from_json(r, grouper=self) for r in data['groupResults']]
         elif results_name == 'WsGroupSaveResults':
             return [Group.from_json(r['wsGroup'], grouper=self) for r in data['results']]
         elif results_name == 'WsStemSaveResults':
@@ -109,8 +117,16 @@ class Grouper(object):
                     subjects[subject_key] = Subject.from_json(privilege['wsSubject'], self)
                 results[subjects[subject_key]].add(PrivilegeName[privilege['privilegeName']])
             return dict(results)
-        else:
+        elif results_name == 'WsAssignGrouperPrivilegesResults':
             return data
+        elif results_name in ('WsAddMemberResults', 'WsDeleteMemberResults'):
+            results = collections.OrderedDict()
+            for result in data['results']:
+                results[Subject.from_json(result['wsSubject'])] = \
+                    ResultCode.inverse[result['resultMetadata']['resultCode']] if result['wsSubject']['id'] != 'None' else ResultCode.subject_not_found
+            return results
+        else:
+            raise GrouperDeserializeException("Don't know how to deserialize response of type {}".format(results_name))
 
     @asyncio.coroutine
     def add_members(self, group, members, *, replace_existing=False):
@@ -121,7 +137,7 @@ class Grouper(object):
         data = {
             'WsRestAddMemberRequest': {
                 'replaceAllExisting': bool_to_tf(replace_existing),
-                'subjectLookups': [member.to_json() for member in members],
+                'subjectLookups': [member.to_json(lookup=True) for member in members],
             },
         }
         return (yield from self.put(url, data))
@@ -134,7 +150,7 @@ class Grouper(object):
         url = self.group_members_url.format(group.name)
         data = {
             'WsRestDeleteMemberRequest': {
-                'subjectLookups': [member.to_json() for member in members],
+                'subjectLookups': [member.to_json(lookup=True) for member in members],
             },
         }
         return (yield from self.put(url, data))
@@ -171,7 +187,7 @@ class Grouper(object):
             assert query is None
             data['WsRestFindStemsRequest']['wsStemLookups'] = [l.to_json(lookup=True) for l in lookups]
             if not data['WsRestFindStemsRequest']['wsStemLookups']:
-                return None
+                return []
         elif query is not None:
             assert isinstance(query, Query)
             data['WsRestFindStemsRequest']['wsStemQueryFilter'] = query.to_json()
@@ -221,9 +237,22 @@ class Grouper(object):
         return (yield from self.post(self.memberships_url, data))
 
     @asyncio.coroutine
-    def get_subject_memberships(self, member, groups=None, subject_attribute_names=()):
-        results = yield from self.get_memberships([member], groups, subject_attribute_names)
-        return results.popitem()[1]
+    def get_subject_memberships(self, member, *,
+                                groups=None,
+                                subject_attribute_names=(),
+                                stem=None,
+                                stem_scope=StemScope.all_in_subtree,
+                                field_type=None):
+        results = yield from self.get_memberships([member],
+                                                  groups=groups,
+                                                  subject_attribute_names=subject_attribute_names,
+                                                  stem=stem,
+                                                  stem_scope=stem_scope,
+                                                  field_type=field_type)
+        try:
+            return results.popitem()[1]
+        except KeyError:
+            return set()
 
     @asyncio.coroutine
     def has_members(self, group, members):
@@ -270,7 +299,13 @@ class Grouper(object):
                               StemToSave(s, save_mode=save_mode).to_json()
                               for s in stem_to_saves]
         }}
-        return (yield from self.put(self.stems_url, data))
+        stems = (yield from self.put(self.groups_url, data))
+        stem_map = {s.name: s for s in stems}
+        for stem_to_save in stem_to_saves:
+            if stem_to_save.group_lookup.name in stem_map:
+                stem_to_save.group.uuid = stem_map[stem_to_save.group_lookup.name].uuid
+                stem_to_save.group.name = stem_map[stem_to_save.group_lookup.name].name
+        return stems
 
     @asyncio.coroutine
     def save_stem(self, stem):
@@ -287,7 +322,6 @@ class Grouper(object):
             'privilegeNames': [pn.value for pn in privilege_names],
         }
         if members:
-
             data['wsSubjectLookups'] = [m.to_json(lookup=True) for m in members]
         if stem:
             data['wsStemLookup'] = stem.to_json(lookup=True)
@@ -299,12 +333,16 @@ class Grouper(object):
 
     def get_privileges(self, *,
                        stem=None, group=None, subject=None,
-                       privilege_name=None):
+                       privilege_name=None,
+                       include_group_detail=False,
+                       include_subject_detail=False):
         assert isinstance(stem, Stem) or isinstance(group, Group)
         assert subject is None or isinstance(subject, Subject)
         assert privilege_name is None or isinstance(privilege_name, PrivilegeName)
         data = {
             'privilegeType': 'access' if group else 'naming',
+            'includeGroupDetail': bool_to_tf(include_group_detail),
+            'includeSubjectDetail': bool_to_tf(include_subject_detail),
         }
         if stem: data['stemName'] = stem.name
         elif group: data['groupName'] = group.name

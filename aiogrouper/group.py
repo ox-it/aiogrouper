@@ -9,11 +9,13 @@ __all__ = ['Group', 'CompositeGroup', 'GroupToSave']
 
 
 class Group:
-    def __init__(self, grouper, name=None, uuid=None, display_extension=None, **kwargs):
+    def __init__(self, grouper, name=None, uuid=None,
+                 extension=None, display_extension=None, **kwargs):
         assert name or uuid
         self.grouper = grouper
         self.name = name
         self.uuid = uuid
+        self.extension = extension
         self.display_extension = display_extension
 
     @classmethod
@@ -21,6 +23,7 @@ class Group:
         if data.get('hasComposite') == 'T':
             return CompositeGroup.from_json(data, grouper)
         return cls(display_extension=data.get('displayExtension'),
+                   extension=data.get('extension'),
                    name=data.get('name'),
                    uuid=data.get('uuid'),
                    grouper=grouper)
@@ -44,8 +47,8 @@ class Group:
         return Subject(identifier=self.name, source='g:gsa')
 
     @asyncio.coroutine
-    def save(self):
-        return (yield from (self.grouper.save_group(self)))
+    def save(self, **kwargs):
+        return (yield from self.grouper.save_group(GroupToSave(self, **kwargs)))
 
     def __eq__(self, other):
         return (self.name == other.name) if self.name else \
@@ -74,6 +77,10 @@ class CompositeGroup(Group):
             'rghtGroup': self.right.to_json(),
         })
         return data
+
+    def as_subject(self):
+        return Subject(identifier=self.name, source='g:gsa',
+                       name=self.display_extension)
 
     @classmethod
     def from_json(cls, data, grouper):

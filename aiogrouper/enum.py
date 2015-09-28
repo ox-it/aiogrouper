@@ -2,6 +2,7 @@ import enum
 
 __all__ = ['FieldType', 'StemScope', 'CompositeType', 'PermissionAssignment', 'SaveMode', 'PrivilegeName']
 
+
 class FieldType(enum.Enum):
     list = 'list'
     access = 'access'
@@ -40,3 +41,12 @@ class PrivilegeName(enum.Enum):
     optout = 'optout'
     stem = 'stem'
     create = 'create'
+
+
+class ResultCode(enum.Enum):
+    success_already_existed = 'SUCCESS_ALREADY_EXISTED'
+    success = 'SUCCESS'
+    success_wasnt_immediate = 'SUCCESS_WASNT_IMMEDIATE'
+    subject_not_found = 'SUBJECT_NOT_FOUND'
+
+ResultCode.inverse = {m.value: m for m in ResultCode.__members__.values()}
