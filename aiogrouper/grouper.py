@@ -342,9 +342,9 @@ class Grouper(object):
         stems = (yield from self.put(self.stems_url, data))
         stem_map = {s.name: s for s in stems}
         for stem_to_save in stem_to_saves:
-            if stem_to_save.group_lookup.name in stem_map:
-                stem_to_save.group.uuid = stem_map[stem_to_save.group_lookup.name].uuid
-                stem_to_save.group.name = stem_map[stem_to_save.group_lookup.name].name
+            if stem_to_save.stem_lookup.name in stem_map:
+                stem_to_save.stem.uuid = stem_map[stem_to_save.stem_lookup.name].uuid
+                stem_to_save.stem.name = stem_map[stem_to_save.stem_lookup.name].name
         return stems
 
     @asyncio.coroutine
