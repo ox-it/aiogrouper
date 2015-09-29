@@ -65,7 +65,7 @@ class Grouper(object):
                                                     data=data,
                                                     headers=headers)
         try:
-            if response.status not in (http.client.OK, http.client.INTERNAL_SERVER_ERROR):
+            if response.status not in (http.client.OK, http.client.CREATED, http.client.INTERNAL_SERVER_ERROR):
                 response_data = yield from response.read()
                 logger.error("Grouper exception: %s %s %s %s %s %s",
                              method, url, response.status, dict(response.headers), data, response_data)
