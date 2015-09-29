@@ -1,4 +1,5 @@
 import asyncio
+import urllib
 import collections
 import collections.abc
 import json
@@ -8,7 +9,7 @@ from urllib.parse import urljoin
 import aiohttp
 
 from .enum import FieldType, StemScope, SaveMode, PrivilegeName, ResultCode
-from .exceptions import api_exceptions, GrouperAPIException, GrouperDeserializeException
+from .exceptions import api_exceptions, GrouperAPIException, GrouperDeserializeException, GrouperHTTPException
 from .group import Group, GroupToSave
 from .query import Query
 from .stem import Stem, StemToSave
@@ -63,6 +64,8 @@ class Grouper(object):
         response = yield from self._session.request(method, url,
                                                     data=data,
                                                     headers=headers)
+        if response.status != urllib.client.OK:
+            raise GrouperHTTPException(response, (yield from response.read()))
         response_data = yield from response.json()
         response.close()
         return self.parse_response(method, path, data, response_data)

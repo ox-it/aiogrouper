@@ -6,6 +6,13 @@ class GrouperDeserializeException(GrouperException):
     pass
 
 
+class GrouperHTTPException(GrouperException):
+    def __init__(self, response, body):
+        self.message = 'HTTP exception: {}'.format(response.status)
+        self.response = response
+        self.body = body
+
+
 class GrouperAPIException(GrouperException):
     result_code = 'EXCEPTION'
 
