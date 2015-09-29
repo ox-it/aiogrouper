@@ -31,6 +31,14 @@ class ProblemSavingStems(GrouperAPIException):
     result_code = 'PROBLEM_SAVING_STEMS'
 
 
+class ProblemDeletingGroups(GrouperAPIException):
+    result_code = 'PROBLEM_DELETING_GROUPS'
+
+
+class ProblemDeletingStems(GrouperAPIException):
+    result_code = 'PROBLEM_DELETING_STEMS'
+
+
 api_exceptions = {}
 _locals = dict(locals())
 for obj in _locals.values():
