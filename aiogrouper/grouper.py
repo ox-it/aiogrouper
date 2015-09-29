@@ -1,7 +1,7 @@
 import asyncio
-import urllib
 import collections
 import collections.abc
+import http
 import json
 import logging
 from urllib.parse import urljoin
@@ -64,7 +64,7 @@ class Grouper(object):
         response = yield from self._session.request(method, url,
                                                     data=data,
                                                     headers=headers)
-        if response.status != urllib.client.OK:
+        if response.status != http.client.OK:
             raise GrouperHTTPException(response, (yield from response.read()))
         response_data = yield from response.json()
         response.close()
