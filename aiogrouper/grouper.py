@@ -339,7 +339,7 @@ class Grouper(object):
                               StemToSave(s, save_mode=save_mode).to_json()
                               for s in stem_to_saves]
         }}
-        stems = (yield from self.put(self.groups_url, data))
+        stems = (yield from self.put(self.stems_url, data))
         stem_map = {s.name: s for s in stems}
         for stem_to_save in stem_to_saves:
             if stem_to_save.group_lookup.name in stem_map:
