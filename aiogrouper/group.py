@@ -28,7 +28,14 @@ class Group:
                    uuid=data.get('uuid'),
                    grouper=grouper)
 
-    def to_json(self, lookup=False):
+    def to_json(self, lookup:bool=False, terse:bool=False) -> dict:
+        """
+        Returns the Group as a dict suitable for passing to the Grouper WS as either a WsGroup or a WsGroupLookup.
+
+        :param lookup: If True, return something that can be interpreted as a WsGroupLoookup by the Grouper WS.
+        :param terse: If True, only return name and uuid attributes; enough to identify a group
+        :return: A dict that can be passed to the Grouper WS
+        """
         if lookup:
             if self.name:
                 return {'groupName': self.name}
@@ -39,7 +46,7 @@ class Group:
             data['name'] = self.name
         if self.uuid:
             data['uuid'] = self.uuid
-        if self.display_extension:
+        if not terse and self.display_extension:
             data['displayExtension'] = self.display_extension
         return data
 
@@ -68,14 +75,15 @@ class CompositeGroup(Group):
         self.left, self.right = left, right
         super().__init__(**kwargs)
 
-    def to_json(self):
-        data = super().to_json()
-        data.update({
-            'hasComposite': 'T',
-            'compositeType': self.composite_type.value,
-            'leftGroup': self.left.to_json(),
-            'rghtGroup': self.right.to_json(),
-        })
+    def to_json(self, lookup=False, terse=False):
+        data = super().to_json(lookup=lookup)
+        if not (lookup or terse):
+            data['detail'] = {
+                'hasComposite': 'T',
+                'compositeType': self.composite_type.value,
+                'leftGroup': self.left.to_json(terse=True),
+                'rightGroup': self.right.to_json(terse=True),
+            }
         return data
 
     def as_subject(self):

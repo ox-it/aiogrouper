@@ -103,10 +103,14 @@ class Grouper(object):
             return results
         elif results_name == 'WsGetMembershipsResults':
             groups = {g['uuid']: Group.from_json(g, grouper=self) for g in data.get('wsGroups', ())}
+            stems = {g['uuid']: Stem.from_json(g, grouper=self) for g in data.get('wsStems', ())}
             subjects = {g['id']: Subject.from_json(g, grouper=self) for g in data.get('wsSubjects', ())}
             results = collections.defaultdict(set)
             for membership in data.get('wsMemberships', ()):
-                results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
+                if 'groupId' in membership:
+                    results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
+                else:
+                    results[subjects[membership['subjectId']]].add(stems[membership['ownerStemId']])
             return dict(results)
         elif results_name == 'WsFindStemsResults':
             return [Stem.from_json(r, grouper=self) for r in data['stemResults']]

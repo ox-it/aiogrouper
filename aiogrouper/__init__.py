@@ -26,4 +26,3 @@ from .group import *
 from .query import *
 from .stem import *
 from .subject import *
-
