@@ -155,12 +155,14 @@ class Grouper(object):
     def add_members(self, group, members, *, replace_existing=False):
         assert isinstance(group, Group)
         assert all(isinstance(m, Subject) for m in members)
-
+        subject_lookups = [member.to_json(lookup=True) for member in members]
+        if not subject_lookups:
+            return collections.OrderedDict()
         url = self.group_members_url.format(group.name)
         data = {
             'WsRestAddMemberRequest': {
                 'replaceAllExisting': bool_to_tf(replace_existing),
-                'subjectLookups': [member.to_json(lookup=True) for member in members],
+                'subjectLookups': subject_lookups,
             },
         }
         return (yield from self.put(url, data))
@@ -169,11 +171,13 @@ class Grouper(object):
     def delete_members(self, group, members):
         assert isinstance(group, Group)
         assert all(isinstance(m, Subject) for m in members)
-
+        subject_lookups = [member.to_json(lookup=True) for member in members]
+        if not subject_lookups:
+            return collections.OrderedDict()
         url = self.group_members_url.format(group.name)
         data = {
             'WsRestDeleteMemberRequest': {
-                'subjectLookups': [member.to_json(lookup=True) for member in members],
+                'subjectLookups': subject_lookups,
             },
         }
         return (yield from self.put(url, data))
