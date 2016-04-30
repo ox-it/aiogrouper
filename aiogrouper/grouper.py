@@ -4,6 +4,7 @@ import collections.abc
 import http
 import json
 import logging
+import time
 from urllib.parse import urljoin
 
 import aiohttp
@@ -61,9 +62,11 @@ class Grouper(object):
             data = data.to_json()
         if isinstance(data, dict):
             data = json.dumps(data)
+        start_time = time.time()
         response = yield from self._session.request(method, url,
                                                     data=data,
                                                     headers=headers)
+        duration = int((time.time() - start_time) * 1000)
         try:
             if response.status not in (http.client.OK, http.client.CREATED, http.client.INTERNAL_SERVER_ERROR):
                 response_data = yield from response.read()
@@ -73,8 +76,10 @@ class Grouper(object):
             response_data = yield from response.json()
         finally:
             response.close()
-        logger.debug("Grouper request: %s %s %s %s %s %s",
-                     method, url, response.status, dict(response.headers), data, response_data)
+        logger.debug("Grouper request: %s %s %s %dms", method, url, response.status, duration,
+                     extra={'responseHeaders': dict(response.headers),
+                            'requestBody': data,
+                            'responseBody': response_data})
         return self.parse_response(method, path, data, response_data)
 
     @asyncio.coroutine
