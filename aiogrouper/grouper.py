@@ -153,6 +153,11 @@ class Grouper(object):
 
     @asyncio.coroutine
     def add_members(self, group, members, *, replace_existing=False):
+        members = list(members)
+        if not members:
+            if replace_existing:
+                yield from self.clear_members(group)
+            return collections.OrderedDict()
         assert isinstance(group, Group)
         assert all(isinstance(m, Subject) for m in members)
         subject_lookups = [member.to_json(lookup=True) for member in members]
@@ -165,10 +170,12 @@ class Grouper(object):
                 'subjectLookups': subject_lookups,
             },
         }
+        print(data)
         return (yield from self.put(url, data))
 
     @asyncio.coroutine
     def delete_members(self, group, members):
+        members = list(members)
         assert isinstance(group, Group)
         assert all(isinstance(m, Subject) for m in members)
         subject_lookups = [member.to_json(lookup=True) for member in members]
