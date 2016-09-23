@@ -447,6 +447,7 @@ class Grouper(object):
                 'WsRestAssignAttributesRequest': {
                     'attributeAssignOperation': 'assign_attr',
                     'attributeAssignType': name.lower(),
+                    'attributeAssignValueOperation': 'replace_values',
                     'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
                     'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
                     'values': [{'valueSystem': value} for value in values],
