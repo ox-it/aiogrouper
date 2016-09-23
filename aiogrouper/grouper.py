@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 
 import aiohttp
 
+from .attribute import Attribute
+from .membership import Membership
 from .enum import FieldType, StemScope, SaveMode, PrivilegeName, ResultCode
 from .exceptions import api_exceptions, GrouperAPIException, GrouperDeserializeException, GrouperHTTPException, \
     ProblemDeletingGroups, ProblemDeletingStems
@@ -18,9 +20,10 @@ from .stem import Stem, StemToSave
 from .subject import Subject
 from .util import tf_to_bool, bool_to_tf
 
-__all__ = ['Grouper']
+__all__ = ['Grouper', 'Stem', 'Group', 'Attribute', 'Membership']
 
 logger = logging.getLogger('aiogrouper')
+
 
 class Grouper(object):
     def __init__(self, base_url, session=None):
@@ -53,6 +56,10 @@ class Grouper(object):
     @property
     def privileges_url(self):
         return urljoin(self.api_url, 'grouperPrivileges')
+
+    @property
+    def attribute_assignments_url(self):
+        return urljoin(self.api_url, 'attributeAssignments')
 
     @asyncio.coroutine
     def request(self, method, path, data):
@@ -170,7 +177,6 @@ class Grouper(object):
                 'subjectLookups': subject_lookups,
             },
         }
-        print(data)
         return (yield from self.put(url, data))
 
     @asyncio.coroutine
@@ -415,6 +421,38 @@ class Grouper(object):
             return result.popitem()[1] if result else set()
         else:
             return result
+
+    @asyncio.coroutine
+    def assign_attributes(self, somethings, attributes, values):
+        somethings_by_type = collections.defaultdict(list)
+
+        if not isinstance(somethings, collections.Container):
+            somethings = [somethings]
+        if not isinstance(attributes, collections.Container):
+            attributes = [attributes]
+        if not all(isinstance(attribute, Attribute) for attribute in attributes):
+            raise TypeError("All attributes must be Attribute instances")
+
+        for something in somethings:
+            for cls in (Group, Stem, Membership, Subject):
+                if isinstance(something, cls):
+                    somethings_by_type[cls].append(something)
+                    break
+            else:
+                raise TypeError('{!r} not of suitable type {!r}'.format(something, type(something)))
+
+        for cls, somethings in somethings_by_type.items():
+            name = cls.__name__
+            data = {
+                'WsRestAssignAttributesRequest': {
+                    'attributeAssignOperation': 'assign_attr',
+                    'attributeAssignType': name.lower(),
+                    'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
+                    'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
+                    'values': [{'valueSystem': value} for value in values],
+                },
+            }
+            result = (yield from self.post(self.attribute_assignments_url, data))
 
     @asyncio.coroutine
     def recursive_delete(self, stem, include_sub_stems=True, include_base_stem=False):

@@ -41,6 +41,8 @@ class PrivilegeName(enum.Enum):
     optout = 'optout'
     stem = 'stem'
     create = 'create'
+    groupAttrRead = 'groupAttrRead'
+    groupAttrUpdate = 'groupAttrUpdate'
 
 
 class ResultCode(enum.Enum):
