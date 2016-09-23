@@ -1,4 +1,6 @@
 import asyncio
+import datetime
+
 import collections
 import collections.abc
 import http
@@ -9,6 +11,7 @@ from urllib.parse import urljoin
 
 import aiohttp
 
+from aiogrouper.membership import Membership
 from .enum import FieldType, StemScope, SaveMode, PrivilegeName, ResultCode
 from .exceptions import api_exceptions, GrouperAPIException, GrouperDeserializeException, GrouperHTTPException, \
     ProblemDeletingGroups, ProblemDeletingStems
@@ -109,14 +112,22 @@ class Grouper(object):
         elif results_name == 'WsGetMembershipsResults':
             groups = {g['uuid']: Group.from_json(g, grouper=self) for g in data.get('wsGroups', ())}
             stems = {g['uuid']: Stem.from_json(g, grouper=self) for g in data.get('wsStems', ())}
-            subjects = {g['id']: Subject.from_json(g, grouper=self) for g in data.get('wsSubjects', ())}
-            results = collections.defaultdict(set)
+            subjects = {(g['sourceId'], g['id']): Subject.from_json(g, grouper=self) for g in data.get('wsSubjects', ())}
+            results = []
             for membership in data.get('wsMemberships', ()):
                 if 'groupId' in membership:
-                    results[subjects[membership['subjectId']]].add(groups[membership['groupId']])
+                    target = groups[membership['groupId']]
                 else:
-                    results[subjects[membership['subjectId']]].add(stems[membership['ownerStemId']])
-            return dict(results)
+                    target = stems[membership['ownerStemId']]
+                subject = subjects[(membership['subjectSourceId'], membership['subjectId'])]
+                results.append(Membership(grouper=self,
+                                          id=membership['membershipId'],
+                                          subject=subject,
+                                          target=target,
+                                          direct=membership['membershipType'] == 'immediate',
+                                          created=datetime.datetime.strptime(membership['createTime'],
+                                                                             '%Y/%m/%d %H:%M:%S.%f')))
+            return results
         elif results_name == 'WsFindStemsResults':
             return [Stem.from_json(r, grouper=self) for r in data['stemResults']]
         elif results_name == 'WsFindGroupsResults':
@@ -257,6 +268,7 @@ class Grouper(object):
 
     @asyncio.coroutine
     def lookup_groups(self, groups):
+        raise NotImplementedError
         data = {
             'WsRestFindGroupsRequest': {
                 'wsGroupLookups': query.to_json(),
@@ -265,24 +277,29 @@ class Grouper(object):
         return (yield from self.post(self.groups_url, data))
 
     @asyncio.coroutine
-    def get_memberships(self, members, *,
+    def get_memberships(self, *,
+                        members=None,
                         groups=None,
                         subject_attribute_names=(),
                         stem=None,
                         stem_scope=StemScope.all_in_subtree,
                         field_type=None):
+        assert members is not None or groups is not None
+        if members is not None and len(members) == 0:
+            return {}
         if groups is not None and len(groups) == 0:
             return {member: set() for member in members}
-        assert all(isinstance(member, Subject) for member in members)
         data = {
             'WsRestGetMembershipsRequest': {
                 'subjectAttributeNames': list(subject_attribute_names),
                 'memberFilter': 'All',
                 'includeGroupDetail': 'F',
                 'includeSubjectDetail': 'F',
-                'wsSubjectLookups': [m.to_json(lookup=True) for m in members],
             }
         }
+        if members is not None:
+            assert all(isinstance(member, Subject) for member in members)
+            data[['WsRestGetMembershipsRequest']]['wsSubjectLookups'] = [m.to_json(lookup=True) for m in members],
         if groups is not None:
             assert all(isinstance(group, Group) for group in groups)
             data['WsRestGetMembershipsRequest']['wsGroupLookups'] = [g.to_json(lookup=True) for g in groups]
@@ -303,16 +320,12 @@ class Grouper(object):
                                 stem=None,
                                 stem_scope=StemScope.all_in_subtree,
                                 field_type=None):
-        results = yield from self.get_memberships([member],
-                                                  groups=groups,
-                                                  subject_attribute_names=subject_attribute_names,
-                                                  stem=stem,
-                                                  stem_scope=stem_scope,
-                                                  field_type=field_type)
-        try:
-            return results.popitem()[1]
-        except KeyError:
-            return set()
+        return (yield from self.get_memberships([member],
+                                                groups=groups,
+                                                subject_attribute_names=subject_attribute_names,
+                                                stem=stem,
+                                                stem_scope=stem_scope,
+                                                field_type=field_type))
 
     @asyncio.coroutine
     def has_members(self, group, members):
