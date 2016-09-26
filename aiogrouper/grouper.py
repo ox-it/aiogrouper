@@ -155,6 +155,8 @@ class Grouper(object):
                 results[Subject.from_json(result['wsSubject'])] = \
                     ResultCode.inverse[result['resultMetadata']['resultCode']] if result['wsSubject']['id'] != 'None' else ResultCode.subject_not_found
             return results
+        elif results_name == 'WsAssignAttributesResults':
+            return data
         else:
             raise GrouperDeserializeException("Don't know how to deserialize response of type {}".format(results_name))
 
@@ -441,19 +443,21 @@ class Grouper(object):
             else:
                 raise TypeError('{!r} not of suitable type {!r}'.format(something, type(something)))
 
+        results = []
         for cls, somethings in somethings_by_type.items():
             name = cls.__name__
             data = {
                 'WsRestAssignAttributesRequest': {
                     'attributeAssignOperation': 'assign_attr',
                     'attributeAssignType': name.lower(),
-                    'attributeAssignValueOperation': 'replace_values',
+                    'attributeAssignValueOperation': 'assign_value',
                     'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
                     'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
                     'values': [{'valueSystem': value} for value in values],
                 },
             }
-            result = (yield from self.post(self.attribute_assignments_url, data))
+            results.append((yield from self.post(self.attribute_assignments_url, data)))
+        return results
 
     @asyncio.coroutine
     def recursive_delete(self, stem, include_sub_stems=True, include_base_stem=False):
