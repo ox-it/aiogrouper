@@ -157,6 +157,14 @@ class Grouper(object):
             return results
         elif results_name == 'WsAssignAttributesResults':
             return data
+        elif results_name == 'WsGetAttributeAssignmentsResults':
+            # We only fetch an individual attribute assignment at one time
+            if 'wsAttributeAssigns' in data:
+                assigns = data['wsAttributeAssigns'][0]
+                if 'wsAttributeAssignValues' in assigns:
+                    value = assigns['wsAttributeAssignValues'][0]['valueSystem']
+                    return value
+            return None
         else:
             raise GrouperDeserializeException("Don't know how to deserialize response of type {}".format(results_name))
 
@@ -454,6 +462,39 @@ class Grouper(object):
                     'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
                     'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
                     'values': [{'valueSystem': value} for value in values],
+                },
+            }
+            results.append((yield from self.post(self.attribute_assignments_url, data)))
+        return results
+
+    @asyncio.coroutine
+    def get_attributes(self, somethings, attributes):
+        somethings_by_type = collections.defaultdict(list)
+        
+        if not isinstance(somethings, collections.Container):
+            somethings = [somethings]
+        if not isinstance(attributes, collections.Container):
+            attributes = [attributes]
+        if not all(isinstance(attribute, Attribute) for attribute in attributes):
+            raise TypeError("All attributes must be Attribute instances")
+            
+        for something in somethings:
+            for cls in (Group, Stem, Membership, Subject):
+                if isinstance(something, cls):
+                    somethings_by_type[cls].append(something)
+                    break;
+            else:
+                raise TypeError('{!r} not of suitable type {!r}'.format(something, type(something)))
+                
+        results = []
+        for cls, somethings in somethings_by_type.items():
+            name = cls.__name__
+            data = {
+                'WsRestGetAttributeAssignmentsRequest': {
+                    'attributeAssignType': name.lower(),
+                    'includeAssignmentsOnAssigments': 'F',
+                    'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
+                    'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
                 },
             }
             results.append((yield from self.post(self.attribute_assignments_url, data)))
