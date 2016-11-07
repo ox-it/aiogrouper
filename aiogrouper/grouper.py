@@ -353,6 +353,8 @@ class Grouper(object):
     @asyncio.coroutine
     def save_stems(self, stem_to_saves, save_mode=SaveMode.insert_or_update):
         assert all(isinstance(s, (Stem, StemToSave)) for s in stem_to_saves)
+        stem_to_saves = [s if isinstance(s, StemToSave) else StemToSave(s, save_mode=save_mode)
+                         for s in stem_to_saves]
         data = {'WsRestStemSaveRequest': {
             'wsStemToSaves': [s.to_json()
                               if isinstance(s, StemToSave) else
