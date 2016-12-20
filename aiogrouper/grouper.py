@@ -299,7 +299,7 @@ class Grouper(object):
         }
         if members is not None:
             assert all(isinstance(member, Subject) for member in members)
-            data[['WsRestGetMembershipsRequest']]['wsSubjectLookups'] = [m.to_json(lookup=True) for m in members],
+            data['WsRestGetMembershipsRequest']['wsSubjectLookups'] = [m.to_json(lookup=True) for m in members]
         if groups is not None:
             assert all(isinstance(group, Group) for group in groups)
             data['WsRestGetMembershipsRequest']['wsGroupLookups'] = [g.to_json(lookup=True) for g in groups]
@@ -320,7 +320,7 @@ class Grouper(object):
                                 stem=None,
                                 stem_scope=StemScope.all_in_subtree,
                                 field_type=None):
-        return (yield from self.get_memberships([member],
+        return (yield from self.get_memberships(members=[member],
                                                 groups=groups,
                                                 subject_attribute_names=subject_attribute_names,
                                                 stem=stem,
