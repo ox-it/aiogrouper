@@ -37,7 +37,7 @@ class Subject:
         return data
 
     def __str__(self):
-        return '<Subject {}: {!r}>'.format(self.id, self.name)
+        return '<Subject {}-{}: {!r}>'.format(self.source, self.id, self.name)
     __repr__ = __str__
 
 everyone = Subject(id='GrouperAll', source='g:isa')

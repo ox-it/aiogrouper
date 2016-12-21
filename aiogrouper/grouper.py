@@ -181,7 +181,6 @@ class Grouper(object):
                 'subjectLookups': subject_lookups,
             },
         }
-        print(data)
         return (yield from self.put(url, data))
 
     @asyncio.coroutine
@@ -211,13 +210,15 @@ class Grouper(object):
         return (yield from self.get(self.group_members_url.format(group.name)))
 
     @asyncio.coroutine
-    def find_groups(self, *, groups=None, query=None):
-        assert isinstance(query, Query) or all(isinstance(g, Group) for g in groups)
+    def find_groups(self, *, groups=None, groupDicts=None, query=None):
+        # assert isinstance(query, Query) or all(isinstance(g, Group) for g in groups) or all(isinstance(gd, dict) for gd in groupDicts)
         data = {}
         if query:
             data['wsQueryFilter'] = query.to_json()
         elif groups:
             data['wsGroupLookups'] = [g.to_json(lookup=True) for g in groups]
+        elif groupDicts:
+            data['wsGroupLookups'] = [{'uuid':g['id']} for g in groupDicts]
         data = {'WsRestFindGroupsRequest': data}
         return (yield from self.post(self.groups_url, data))
 
@@ -293,7 +294,7 @@ class Grouper(object):
             'WsRestGetMembershipsRequest': {
                 'subjectAttributeNames': list(subject_attribute_names),
                 'memberFilter': 'All',
-                'includeGroupDetail': 'F',
+                'includeGroupDetail': 'T',
                 'includeSubjectDetail': 'F',
             }
         }

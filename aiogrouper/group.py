@@ -10,19 +10,21 @@ __all__ = ['Group', 'CompositeGroup', 'GroupToSave']
 
 class Group:
     def __init__(self, grouper, name=None, uuid=None,
-                 extension=None, display_extension=None, **kwargs):
+                 extension=None, display_extension=None, display_name=None, **kwargs):
         assert name or uuid
         self.grouper = grouper
         self.name = name
         self.uuid = uuid
         self.extension = extension
         self.display_extension = display_extension
+        self.display_name = display_name
 
     @classmethod
     def from_json(cls, data, grouper):
         if data.get('hasComposite') == 'T':
             return CompositeGroup.from_json(data, grouper)
         return cls(display_extension=data.get('displayExtension'),
+                   display_name=data.get('displayName'),
                    extension=data.get('extension'),
                    name=data.get('name'),
                    uuid=data.get('uuid'),
