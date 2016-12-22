@@ -128,7 +128,7 @@ class Grouper(object):
                     target = stems[membership['ownerStemId']]
                 subject = subjects[(membership['subjectSourceId'], membership['subjectId'])]
                 results.append(Membership(grouper=self,
-                                          id=membership['membershipId'],
+                                          id=membership['immediateMembershipId'],
                                           subject=subject,
                                           target=target,
                                           direct=membership['membershipType'] == 'immediate',
@@ -469,10 +469,17 @@ class Grouper(object):
         results = []
         for cls, somethings in somethings_by_type.items():
             name = cls.__name__
+            
+            assign_type = name.lower()
+            
+            # we are only ever assigning attributes on immediate memberships
+            if assign_type == 'membership':
+                assign_type = 'imm_mem'
+            
             data = {
                 'WsRestAssignAttributesRequest': {
                     'attributeAssignOperation': 'assign_attr',
-                    'attributeAssignType': name.lower(),
+                    'attributeAssignType': assign_type,
                     'attributeAssignValueOperation': 'replace_values',
                     'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
                     'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
@@ -504,9 +511,12 @@ class Grouper(object):
         results = []
         for cls, somethings in somethings_by_type.items():
             name = cls.__name__
+            assign_type = name.lower()
+            if assign_type == 'membership':
+                assign_type = 'imm_mem'
             data = {
                 'WsRestGetAttributeAssignmentsRequest': {
-                    'attributeAssignType': name.lower(),
+                    'attributeAssignType': assign_type,
                     'includeAssignmentsOnAssigments': 'F',
                     'wsAttributeDefNameLookups': list(attribute.to_json(lookup=True) for attribute in attributes),
                     'wsOwner{}Lookups'.format(name): list(something.to_json(lookup=True) for something in somethings),
