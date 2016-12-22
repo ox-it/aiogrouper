@@ -43,6 +43,8 @@ class PrivilegeName(enum.Enum):
     create = 'create'
     groupAttrRead = 'groupAttrRead'
     groupAttrUpdate = 'groupAttrUpdate'
+    stemAttrRead = 'stemAttrRead'
+    stemAttrUpdate = 'stemAttrUpdate'
 
 
 class ResultCode(enum.Enum):
